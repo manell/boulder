@@ -1,0 +1,36 @@
+{
+  "va": {
+    "CAASERVFAILExceptions": "test/caa-servfail-exceptions.txt",
+    "userAgent": "boulder",
+    "debugAddr": ":8004",
+    "portConfig": {
+      "httpPort": 5002,
+      "httpsPort": 5001,
+      "tlsPort": 5001
+    },
+    "lookupIPV6": true,
+    "maxConcurrentRPCServerRequests": 100000,
+    "dnsTries": 3,
+    "issuerDomain": "happy-hacker-ca.invalid",
+    "amqp": {
+      "serverURLFile": "test/secrets/amqp_url",
+      "insecure": true,
+      "serviceQueue": "VA.server"
+    }
+  },
+
+  "statsd": {
+    "server": "localhost:8125",
+    "prefix": "Boulder"
+  },
+
+  "syslog": {
+    "stdoutlevel": 6
+  },
+
+  "common": {
+    "dnsResolver": "127.0.0.1:8053",
+    "dnsTimeout": "1s",
+    "dnsAllowLoopbackAddresses": true
+  }
+}

@@ -1,25 +1,15 @@
 package main
 
 import (
-	"crypto/tls"
-	"flag"
 	"fmt"
 	"net/http"
-	"os"
 
-	"github.com/facebookgo/httpdown"
 	"github.com/jmhodges/clock"
 
 	"github.com/letsencrypt/boulder/cmd"
-	"github.com/letsencrypt/boulder/core"
 	"github.com/letsencrypt/boulder/features"
 	"github.com/letsencrypt/boulder/goodkey"
-	bgrpc "github.com/letsencrypt/boulder/grpc"
-	blog "github.com/letsencrypt/boulder/log"
 	"github.com/letsencrypt/boulder/metrics"
-	rapb "github.com/letsencrypt/boulder/ra/proto"
-	"github.com/letsencrypt/boulder/rpc"
-	sapb "github.com/letsencrypt/boulder/sa/proto"
 	"github.com/letsencrypt/boulder/wfe"
 )
 
@@ -70,51 +60,10 @@ type config struct {
 	}
 }
 
-func setupWFE(c config, logger blog.Logger, stats metrics.Scope) (core.RegistrationAuthority, core.StorageAuthority) {
-	amqpConf := c.WFE.AMQP
-	var rac core.RegistrationAuthority
-
-	var tls *tls.Config
-	var err error
-	if c.WFE.TLS.CertFile != nil {
-		tls, err = c.WFE.TLS.Load()
-		cmd.FailOnError(err, "TLS config")
-	}
-
-	if c.WFE.RAService != nil {
-		conn, err := bgrpc.ClientSetup(c.WFE.RAService, tls, stats)
-		cmd.FailOnError(err, "Failed to load credentials and create gRPC connection to RA")
-		rac = bgrpc.NewRegistrationAuthorityClient(rapb.NewRegistrationAuthorityClient(conn))
-	} else {
-		var err error
-		rac, err = rpc.NewRegistrationAuthorityClient(clientName, amqpConf, stats)
-		cmd.FailOnError(err, "Unable to create RA AMQP client")
-	}
-
-	var sac core.StorageAuthority
-	if c.WFE.SAService != nil {
-		conn, err := bgrpc.ClientSetup(c.WFE.SAService, tls, stats)
-		cmd.FailOnError(err, "Failed to load credentials and create gRPC connection to SA")
-		sac = bgrpc.NewStorageAuthorityClient(sapb.NewStorageAuthorityClient(conn))
-	} else {
-		var err error
-		sac, err = rpc.NewStorageAuthorityClient(clientName, amqpConf, stats)
-		cmd.FailOnError(err, "Unable to create SA client")
-	}
-
-	return rac, sac
-}
-
 func main() {
-	configFile := flag.String("config", "", "File path to the configuration file for this service")
-	flag.Parse()
-	if *configFile == "" {
-		flag.Usage()
-		os.Exit(1)
-	}
-
+	configFile := "./wfe.json"
 	var c config
-	err := cmd.ReadConfigFile(*configFile, &c)
+	err := cmd.ReadConfigFile(configFile, &c)
 	cmd.FailOnError(err, "Reading JSON config file into config structure")
 
 	err = features.Set(c.WFE.Features)
@@ -127,9 +76,9 @@ func main() {
 
 	wfe, err := wfe.NewWebFrontEndImpl(scope, clock.Default(), goodkey.NewKeyPolicy(), logger)
 	cmd.FailOnError(err, "Unable to create WFE")
-	rac, sac := setupWFE(c, logger, scope)
-	wfe.RA = rac
-	wfe.SA = sac
+
+	wfe.RA = NewRA()
+	wfe.SA = NewSA()
 
 	// TODO: remove this check once the production config uses the SubscriberAgreementURL in the wfe section
 	if c.WFE.SubscriberAgreementURL != "" {
@@ -156,48 +105,5 @@ func main() {
 	wfe.BaseURL = c.Common.BaseURL
 	h := wfe.Handler()
 
-	httpMonitor := metrics.NewHTTPMonitor(scope, h)
-
-	logger.Info(fmt.Sprintf("Server running, listening on %s...\n", c.WFE.ListenAddress))
-	srv := &http.Server{
-		Addr:    c.WFE.ListenAddress,
-		Handler: httpMonitor,
-	}
-
-	go cmd.DebugServer(c.WFE.DebugAddr)
-	go cmd.ProfileCmd(scope)
-
-	hd := &httpdown.HTTP{
-		StopTimeout: c.WFE.ShutdownStopTimeout.Duration,
-		KillTimeout: c.WFE.ShutdownKillTimeout.Duration,
-		Stats:       metrics.NewFBAdapter(scope, clock.Default()),
-	}
-	hdSrv, err := hd.ListenAndServe(srv)
-	cmd.FailOnError(err, "Error starting HTTP server")
-
-	var hdTLSSrv httpdown.Server
-	if c.WFE.TLSListenAddress != "" {
-		cer, err := tls.LoadX509KeyPair(c.WFE.ServerCertificatePath, c.WFE.ServerKeyPath)
-		cmd.FailOnError(err, "Couldn't read WFE server certificate or key")
-		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cer}}
-
-		logger.Info(fmt.Sprintf("TLS Server running, listening on %s...\n", c.WFE.TLSListenAddress))
-		TLSSrv := &http.Server{
-			Addr:      c.WFE.TLSListenAddress,
-			Handler:   httpMonitor,
-			TLSConfig: tlsConfig,
-		}
-		hdTLSSrv, err = hd.ListenAndServe(TLSSrv)
-		cmd.FailOnError(err, "Error starting TLS server")
-	}
-
-	go cmd.CatchSignals(logger, func() {
-		_ = hdSrv.Stop()
-		if hdTLSSrv != nil {
-			_ = hdTLSSrv.Stop()
-		}
-	})
-
-	forever := make(chan struct{}, 1)
-	<-forever
+	http.ListenAndServe(":1234", h)
 }
