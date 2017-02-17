@@ -117,7 +117,7 @@ func loadSigner(issuerConfig cmd.IssuerConfig) (crypto.Signer, error) {
 }
 
 func NewCA() *ca.CertificateAuthorityImpl {
-	configFile := "./ca.config"
+	configFile := "./ca.json"
 
 	var c CAConfig
 	err := cmd.ReadConfigFile(configFile, &c)

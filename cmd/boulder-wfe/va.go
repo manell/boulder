@@ -1,8 +1,6 @@
 package main
 
 import (
-	"flag"
-	"os"
 	"time"
 
 	"github.com/jmhodges/clock"
@@ -54,15 +52,10 @@ type VAConfig struct {
 }
 
 func NewVA() *va.ValidationAuthorityImpl {
-	configFile := flag.String("config", "", "File path to the configuration file for this service")
-	flag.Parse()
-	if *configFile == "" {
-		flag.Usage()
-		os.Exit(1)
-	}
+	configFile := "./va.json"
 
 	var c VAConfig
-	err := cmd.ReadConfigFile(*configFile, &c)
+	err := cmd.ReadConfigFile(configFile, &c)
 	cmd.FailOnError(err, "Reading JSON config file into config structure")
 
 	err = features.Set(c.VA.Features)

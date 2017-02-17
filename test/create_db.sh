@@ -3,11 +3,9 @@ set -o errexit
 cd $(dirname $0)/..
 source test/db-common.sh
 
-# set db connection for if running in a separate container or not
-dbconn="-u root"
-if [[ $MYSQL_CONTAINER ]]; then
-	dbconn="-u root -h boulder-mysql --port 3306"
-fi
+
+dbconn="-u root -h pilaf --port 3306"
+
 
 APPLY_NEXT_MIGRATIONS=${APPLY_NEXT_MIGRATIONS:-true}
 

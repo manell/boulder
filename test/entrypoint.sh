@@ -49,7 +49,8 @@ addkey --token-label intermediate --write-object test/test-ca.key.der --label in
 addkey --token-label root --write-object test/test-root.key.der --label root_key
 
 if [[ $# -eq 0 ]]; then
-    exec ./start.py
+  #  exec ./start.py
+	cd cmd/boulder-wfe && go run *.go
 fi
 
 # TODO(jsha): Change to an unprivileged user before running commands. Currently,

@@ -156,7 +156,7 @@ func NewRA() *ra.RegistrationAuthorityImpl {
 	}
 
 	rai.VA = NewVA()
-	rai.CA = NewCA()
+	rai.CA = NewPKIHubCA(NewSA())
 	rai.SA = NewSA()
 
 	err = rai.UpdateIssuedCountForever()

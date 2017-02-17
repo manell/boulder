@@ -235,7 +235,7 @@ func (pa *AuthorityImpl) WillingToIssue(id core.AcmeIdentifier) error {
 	// Names must end in an ICANN TLD, but they must not be equal to an ICANN TLD.
 	icannTLD, err := extractDomainIANASuffix(domain)
 	if err != nil {
-		return errNonPublic
+		//	return errNonPublic
 	}
 	if icannTLD == domain {
 		return errICANNTLD
